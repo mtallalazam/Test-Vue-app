@@ -14,7 +14,7 @@ const passwordFieldType = computed(() => showPassword.value ? 'text' : 'password
 
 
 const handleLogin = async () => {
-  await store.dispatch('auth/login', { email: email.value, password: password.value })
+  await store.dispatch('auth/login', { email: email.value, password: password.value });
   router.push('/tasks');
 };
 

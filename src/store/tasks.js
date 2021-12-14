@@ -1,3 +1,6 @@
+import axios from "axios";
+import apis from "../apis";
+
 const tasks = [
 	{
 		id: 1,
@@ -44,7 +47,6 @@ const mutations = {
 	addNewTask: (state, payload) => {
 		const newList = state.tasks;
 		newList.push(payload);
-		console.log(newList);
 		state.tasks = newList;
 	},
 	updateTask: (state, payload) => {
@@ -60,7 +62,8 @@ const mutations = {
 };
 
 const actions = {
-	createTask: ({ commit }, payload) => {
+	createTask: async ({ rootState, commit }, payload) => {
+		// await axios.post(apis.createTask, payload, { headers: { Authorization: rootState.auth.authToken } });
 		commit("addNewTask", payload);
 	},
 
