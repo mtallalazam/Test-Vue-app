@@ -1,49 +1,16 @@
 import axios from "axios";
+import dayjs from "dayjs";
 import apis from "../apis";
-
-const tasks = [
-	{
-		id: 1,
-		title: "Task One",
-		description: "Task Description",
-		status: "Incomplete",
-		due_at: "2021-03-23 23:30:00",
-	},
-	{
-		id: 2,
-		title: "Task Two",
-		description: "Task Description",
-		status: "Incomplete",
-		due_at: "2021-03-23 23:30:00",
-	},
-	{
-		id: 3,
-		title: "Task Three",
-		description: "Task Description",
-		status: "Complete",
-		due_at: "2021-03-23 23:30:00",
-	},
-	{
-		id: 4,
-		title: "Task Four",
-		description: "Task Description",
-		status: "Complete",
-		due_at: "2021-03-23 23:30:00",
-	},
-	{
-		id: 5,
-		title: "Task Five",
-		description: "Task Description",
-		status: "Complete",
-		due_at: "2021-03-23 23:30:00",
-	},
-];
+import { createToast } from "mosha-vue-toastify";
 
 const state = {
-	tasks: tasks,
+	tasks: [],
 };
 
 const mutations = {
+	saveTasksList: (state, payload) => {
+		state.tasks = payload;
+	},
 	addNewTask: (state, payload) => {
 		const newList = state.tasks;
 		newList.push(payload);
@@ -55,24 +22,92 @@ const mutations = {
 		updatedList[index] = payload.task;
 		state.tasks = updatedList;
 	},
-	deleteTask: (state, payload) => {
-		const filteredList = state.tasks.filter((item) => item.id !== payload);
+	deleteTask: (state, id) => {
+		const filteredList = state.tasks.filter((item) => item.id !== id);
 		state.tasks = filteredList;
 	},
 };
 
 const actions = {
+	getTasks: async ({ rootState, commit }) => {
+		const resp = await axios.get(apis.tasks, { headers: { Authorization: `Bearer ${rootState.auth.authToken}` } });
+		commit("saveTasksList", resp.data.tasks);
+	},
+
 	createTask: async ({ rootState, commit }, payload) => {
-		// await axios.post(apis.createTask, payload, { headers: { Authorization: rootState.auth.authToken } });
-		commit("addNewTask", payload);
+		const apiPayload = payload;
+		delete apiPayload.id;
+
+		await axios
+			.post(apis.tasks, apiPayload, { headers: { Authorization: `Bearer ${rootState.auth.authToken}` } })
+			.then((resp) => {
+				// console.log("resp ", resp);
+
+				commit("addNewTask", payload);
+
+				createToast(`${resp.data.message}`, {
+					position: "top-right",
+					type: "success",
+					hideProgressBar: "true",
+				});
+			})
+			.catch((error) => {
+				// console.log(error.response);
+				let errorMsg = error.response.data.message ? error.response.data.message : "An error occured.";
+				createToast(`Error : ${errorMsg}`, {
+					position: "top-right",
+					type: "danger",
+					hideProgressBar: "true",
+				});
+			});
 	},
 
-	updateTask: ({ commit }, payload) => {
-		commit("updateTask", payload);
+	updateTask: async ({ rootState, commit }, payload) => {
+		await axios
+			.put(`${apis.tasks}/${payload.id}`, payload, {
+				headers: { Authorization: `Bearer ${rootState.auth.authToken}` },
+			})
+			.then((resp) => {
+				commit("updateTask", payload);
+				createToast(`${resp.data.message}`, {
+					position: "top-right",
+					type: "success",
+					hideProgressBar: "true",
+				});
+			})
+			.catch((error) => {
+				console.log(error, error.response);
+				let errorMsg = error.response.data.message ? error.response.data.message : "An error occured.";
+				createToast(`Error : ${errorMsg}`, {
+					position: "top-right",
+					type: "danger",
+					hideProgressBar: "true",
+				});
+			});
 	},
 
-	deleteTask: ({ commit }, payload) => {
-		commit("deleteTask", payload);
+	deleteTask: async ({ commit, rootState }, id) => {
+		await axios
+			.delete(`${apis.tasks}/${id}`, {
+				headers: { Authorization: `Bearer ${rootState.auth.authToken}` },
+			})
+			.then((resp) => {
+				commit("deleteTask", id);
+				createToast(`${resp.data.message}`, {
+					position: "top-right",
+					type: "success",
+					hideProgressBar: "true",
+				});
+			})
+			.catch((error) => {
+				console.log(error, error.response);
+				let errorMsg = error.response.data.message ? error.response.data.message : "An error occured.";
+				createToast(`Error : ${errorMsg}`, {
+					position: "top-right",
+					type: "danger",
+					hideProgressBar: "true",
+				});
+			});
 	},
 };
 

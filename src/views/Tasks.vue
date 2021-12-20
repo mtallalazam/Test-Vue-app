@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import {
   Dialog,
   DialogOverlay,
@@ -9,14 +9,31 @@ import {
   TransitionChild
 } from "@headlessui/vue";
 import { useStore } from 'vuex';
-// import { Calendar, DatePicker } from 'v-calendar';
+import axios from "axios";
+import apis from "../apis";
+import dayjs from "dayjs";
+import { createToast } from "mosha-vue-toastify";
+import { HollowDotsSpinner } from 'epic-spinners';
 
+// Hooks
 const store = useStore();
 
+// Local State
+let fetchingTasksList = ref(true);
+let isOpen = ref(false);
+let newTaskSummary = ref('');
+let newTaskDescription = ref('');
+let newTaskDate = ref('');
+let deletingTask = ref(false);
+let changingTaskStatus = ref(false);
+const processingCreateTask = ref(false);
+const errors = ref([]);
+
+// Computed
 const incompletedTasksList = computed(() => {
   if (store.state.tasks) {
     const list = store.state.tasks.tasks;
-    return list.filter((item) => item.status === 'Incomplete');
+    return list.filter((item) => item.status === 'inprogress');
   } else {
     return [];
   }
@@ -24,49 +41,89 @@ const incompletedTasksList = computed(() => {
 const completedTasksList = computed(() => {
   if (store.state.tasks) {
     const list = store.state.tasks.tasks;
-    return list.filter((item) => item.status === 'Complete');
+    return list.filter((item) => item.status === 'completed');
   } else {
     return [];
   }
 });
-let isOpen = ref(false);
-let newTaskSummary = ref('');
-let newTaskDescription = ref('');
-let newTaskDate = ref('');
 
+// Methods
 let closeModal = function () {
   isOpen.value = false
 };
 let openModal = function () {
   isOpen.value = true
 };
-const getCheckedStatus = (task) => task.status === 'Complete' ? true : false;
+const getCheckedStatus = (task) => task.status === 'completed' ? true : false;
 const handleCheckBoxClick = async (task) => {
+  changingTaskStatus.value = true;
   const updatedTask = {
     ...task,
-    status: task.status === 'Complete' ? 'Incomplete' : 'Complete',
+    status: task.status === 'completed' ? 'inprogress' : 'completed',
   }
   await store.dispatch('tasks/updateTask', { id: task.id, task: updatedTask })
+  changingTaskStatus.value = false;
 };
 const handleDeleteTask = async (task) => {
+  deletingTask.value = true;
   await store.dispatch('tasks/deleteTask', task.id);
-}
+  deletingTask.value = false;
+};
 const handleCreateTask = async () => {
+  processingCreateTask.value = true;
+
+  if (!newTaskSummary.value.length) {
+    errors.value.push('emptyNewTaskSummary');
+  } else {
+    errors.value = errors.value.filter(item => item !== 'emptyNewTaskSummary');
+  }
+  if (!newTaskDescription.value.length) {
+    errors.value.push('emptyNewTaskDescription');
+  } else {
+    errors.value = errors.value.filter(item => item !== 'emptyNewTaskDescription');
+  }
+  if (!newTaskDate.value.length) {
+    errors.value.push('emptyNewTaskDate');
+  } else {
+    errors.value = errors.value.filter(item => item !== 'emptyNewTaskDate');
+  }
+
+  if (errors.value.length) {
+    processingCreateTask.value = false;
+    return;
+  }
+
   await store.dispatch('tasks/createTask', {
-    id: store.state.tasks.tasks.length + 1,
+    id: `new-task-${store.state.tasks.tasks.length + 1}`,
     title: newTaskSummary.value,
     description: newTaskDescription.value,
-    status: "Incomplete",
-    due_at: newTaskDate.value,
+    status: "inprogress",
+    due_at: dayjs(newTaskDate.value).format("YYYY-MM-DD HH:mm:ss"),
   });
+
+  closeModal();
   newTaskSummary.value = '';
   newTaskDescription.value = '';
   newTaskDate.value = '';
-  closeModal();
-}
+  processingCreateTask.value = false;
+};
+
+// LifeCycle Methods
+onMounted(async () => {
+  fetchingTasksList.value = true;
+  await store.dispatch('tasks/getTasks');
+  fetchingTasksList.value = false;
+});
 </script>
 
 <template>
+  <div
+    v-if="deletingTask || changingTaskStatus"
+    class="fixed left-0 top-0 flex items-center justify-center w-screen h-screen bg-black opacity-70 z-50"
+  >
+    <hollow-dots-spinner :animation-duration="1000" :dot-size="15" :dots-num="3" />
+  </div>
+
   <section class>
     <h1 class="text-center text-3xl font-semibold mt-2 mb-8 md:hidden">Task</h1>
 
@@ -75,7 +132,16 @@ const handleCreateTask = async () => {
     <div class="mb-8">
       <h2 class="text-lg font-bold text-grayHeading">Incomplete</h2>
 
-      <ul class>
+      <div v-if="fetchingTasksList" class="my-3">
+        <hollow-dots-spinner
+          :animation-duration="1000"
+          :dot-size="10"
+          :dots-num="3"
+          color="#575767"
+        />
+      </div>
+
+      <ul v-else class>
         <li
           v-for="(task, index) in incompletedTasksList"
           :key="index"
@@ -119,7 +185,16 @@ const handleCreateTask = async () => {
     <div class>
       <h2 class="text-lg font-bold text-grayHeading">Completed</h2>
 
-      <ul class>
+      <div v-if="fetchingTasksList" class>
+        <hollow-dots-spinner
+          :animation-duration="1000"
+          :dot-size="10"
+          :dots-num="3"
+          color="#575767"
+        />
+      </div>
+
+      <ul v-else class>
         <li v-for="(task, index) in completedTasksList" :key="index" class="flex items-start my-4">
           <input
             type="checkbox"
@@ -188,6 +263,27 @@ const handleCreateTask = async () => {
                     placeholder="Summary"
                   />
                 </div>
+                <p
+                  v-if="errors.includes('emptyNewTaskSummary')"
+                  class="flex items-center my-3 text-sm text-red-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    class="mr-2 bi bi-exclamation-circle"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"
+                    />
+                    <path
+                      d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"
+                    />
+                  </svg>
+                  Kindly enter a Summary!
+                </p>
 
                 <div class="flex items-start py-4 border-b border-grayborder">
                   <img src="../../public/Description.svg" alt class="py-3" />
@@ -199,6 +295,27 @@ const handleCreateTask = async () => {
                     class="flex-grow resize-none bg-transparent border-0 focus:border-transparent focus:ring-transparent"
                   ></textarea>
                 </div>
+                <p
+                  v-if="errors.includes('emptyNewTaskDescription')"
+                  class="flex items-center my-3 text-sm text-red-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    class="mr-2 bi bi-exclamation-circle"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"
+                    />
+                    <path
+                      d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"
+                    />
+                  </svg>
+                  Kindly enter a Description!
+                </p>
 
                 <div class="flex flex-grow items-center py-4 border-b border-grayborder">
                   <img src="../../public/DueDate.svg" alt class />
@@ -210,14 +327,45 @@ const handleCreateTask = async () => {
                     class="bg-transparent border-0 focus:border-transparent focus:ring-transparent"
                   />
                 </div>
+                <p
+                  v-if="errors.includes('emptyNewTaskDate')"
+                  class="flex items-center my-3 text-sm text-red-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    class="mr-2 bi bi-exclamation-circle"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"
+                    />
+                    <path
+                      d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"
+                    />
+                  </svg>
+                  Kindly select a Date!
+                </p>
               </form>
 
               <div class="mt-auto flex flex-col items-center md:max-w-sm md:mx-auto">
                 <button
                   type="button"
-                  class="w-full px-4 py-3 text-sm font-medium text-white bg-black rounded-full"
+                  class="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white bg-black rounded-full"
                   @click="handleCreateTask"
-                >Save</button>
+                >
+                  <hollow-dots-spinner
+                    class="my-1"
+                    v-if="processingCreateTask"
+                    :animation-duration="1000"
+                    :dot-size="10"
+                    :dots-num="3"
+                  />
+
+                  <span v-else class>Save</span>
+                </button>
 
                 <button
                   type="button"

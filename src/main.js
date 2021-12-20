@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import "./tailwind.css";
+import "mosha-vue-toastify/dist/style.css";
 import App from "./App.vue";
 import store from "./store";
 import router from "./router";

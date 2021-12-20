@@ -62,7 +62,7 @@ const toggleSidebarVisibility = () => sidebarVisibility.value = !sidebarVisibili
 </script>
 
 <template>
-  <main class="flex w-screen h-screen bg-white">
+  <main class="flex h-screen bg-white overflow-hidden">
     <div :class="getClasses('openBtn')" @click="toggleSidebarVisibility">
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -175,7 +175,7 @@ const toggleSidebarVisibility = () => sidebarVisibility.value = !sidebarVisibili
       </div>
     </section>
 
-    <section :class="getClasses('main')">
+    <section class="overflow-auto" :class="getClasses('main')">
       <router-view />
     </section>
   </main>

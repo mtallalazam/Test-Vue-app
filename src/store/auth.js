@@ -1,4 +1,4 @@
-// import axios from "axios";
+import axios from "axios";
 // import platform from "platform";
 import apis from "../apis";
 
@@ -20,7 +20,24 @@ const actions = {
 		commit("changeAuthStatus", true);
 	},
 
+	saveToken: ({ commit }) => {
+		commit("changeAuthToken", "Zl49StyUu9721TFoRHfDqGmEVikCKNhJayGUgDvK");
+		commit("changeAuthStatus", true);
+	},
+
+	signup: ({ commit }, payload) => {
+		const { email, password } = payload;
+		axios.post(apis.signup, {
+			name: "test user",
+			email: "test@digitaltolk.com",
+			password: "654321",
+		});
+		// commit("changeAuthToken", "Zl49StyUu9721TFoRHfDqGmEVikCKNhJayGUgDvK");
+		// commit("changeAuthStatus", true);
+	},
+
 	logout: ({ commit }) => {
+		window.sessionStorage.removeItem("auth_token");
 		commit("changeAuthStatus", false);
 	},
 };

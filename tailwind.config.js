@@ -15,6 +15,7 @@ module.exports = {
 			emerald: colors.emerald,
 			indigo: colors.indigo,
 			yellow: colors.yellow,
+			red: colors.red,
 			graybg: "#F6F6F6",
 			grayborder: "#E8E8E8",
 			grayPlaceholder: "#BDBDBD",
