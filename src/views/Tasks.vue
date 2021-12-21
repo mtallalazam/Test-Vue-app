@@ -11,9 +11,11 @@ import {
 import { useStore } from 'vuex';
 import axios from "axios";
 import apis from "../apis";
-import dayjs from "dayjs";
 import { createToast } from "mosha-vue-toastify";
 import { HollowDotsSpinner } from 'epic-spinners';
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+dayjs.extend(relativeTime);
 
 // Hooks
 const store = useStore();
@@ -161,7 +163,7 @@ onMounted(async () => {
               :for="`${task.id}-${task.title}`"
               class="text-lg text-grayHeading"
             >{{ task.title }}</label>
-            <p class="text-sm text-graySubText">⏰ Today, 17.00</p>
+            <p class="text-sm text-graySubText">⏰ {{ dayjs(task.due_at).fromNow() }}</p>
           </div>
 
           <svg
